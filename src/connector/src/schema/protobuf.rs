@@ -90,6 +90,9 @@ pub async fn fetch_from_registry(
     let loader = SchemaLoader::from_format_options(topic, format_options)?;
 
     let (vid, vpb) = loader.load_val_schema::<FileDescriptor>().await?;
+    let super::SchemaVersion::Confluent(vid) = vid else {
+        unreachable!()
+    };
 
     Ok((
         vpb.parent_pool().get_message_by_name(message_name).unwrap(),
