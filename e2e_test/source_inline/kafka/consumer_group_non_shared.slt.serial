@@ -1,12 +1,15 @@
 control substitution on
 
+statement ok
+SET streaming_use_shared_source TO false;
+
 # Note either `./risedev rpk` or `rpk` is ok here.
 # risedev-env contains env var RPK_BROKERS, which is read by rpk
 system ok
-rpk topic create test_consumer_group -p 3
+rpk topic create test_consumer_group_non_shared -p 3
 
 system ok
-cat <<EOF | rpk topic produce test_consumer_group -f "%p %v\\n" -p 0
+cat <<EOF | rpk topic produce test_consumer_group_non_shared -f "%p %v\\n" -p 0
 0 {"x":"a"}
 1 {"x":"b"}
 2 {"x":"c"}
@@ -16,7 +19,7 @@ statement ok
 CREATE SOURCE s(x varchar)
 WITH(
     ${RISEDEV_KAFKA_WITH_OPTIONS_COMMON},
-    topic = 'test_consumer_group',
+    topic = 'test_consumer_group_non_shared',
     scan.startup.mode = 'earliest',
 ) FORMAT PLAIN ENCODE JSON;
 
@@ -25,7 +28,7 @@ statement ok
 CREATE SOURCE s2(x varchar)
 WITH(
     ${RISEDEV_KAFKA_WITH_OPTIONS_COMMON},
-    topic = 'test_consumer_group',
+    topic = 'test_consumer_group_non_shared',
     scan.startup.mode = 'earliest',
     group.id.prefix = 'my_group'
 ) FORMAT PLAIN ENCODE JSON;
@@ -54,9 +57,9 @@ b
 c
 
 
-# There are 2 consumer groups, 1 for batch query (not listed below), 1 for Source.
+# There are 2 consumer groups, 1 for batch query (not listed below), 1 for MV.
 # All of them are "Empty" state with 0 members, because we manually `assign` partitions to them.
-# At the beginning, the Source's consumer group will not occur. They will be created after committing offset to Kafka.
+# At the beginning, the MV's consumer group will not occur. They will be created after committing offset to Kafka.
 # (enable.auto.commit defaults to true, and auto.commit.interval.ms defaults to 5s)
 sleep 5s
 
@@ -73,29 +76,70 @@ system ok
 0
 
 
+# We try to interfere by creating consumers that subscribing to the topic with the RW's group id.
+system ok
+./e2e_test/source_inline/kafka/consumer_group.mjs --mv mv list-groups | tr ',' '\\n' | xargs -P4 -I {} sh -c "rpk topic consume test_consumer_group_non_shared -g {}" &
+
+# Wait a while for them to subscribe to the topic.
+sleep 15s
+
+
+system ok
+cat <<EOF | rpk topic produce test_consumer_group_non_shared -f "%p %v\\n" -p 0
+0 {"x":"d"}
+1 {"x":"e"}
+2 {"x":"f"}
+EOF
+
+sleep 2s
+
+# Verify that RisingWave's Kafka consumer works independently from the console consumers subscribing to the same group.
+query ?
+SELECT * FROM mv order by x;
+----
+a
+b
+c
+d
+e
+f
+
+
+query ?
+SELECT * FROM mv2 order by x;
+----
+a
+b
+c
+d
+e
+f
+
+
+system ok
+pkill rpk
+
 # Test delete consumer group on drop
 
-# my_group: 1 source fragment, 1 backfill fragment
-# rw-consumer: 1 source fragment, 1 backfill fragment, 1 batch query
-# TODO: drop backfill fragment
+# my_group: 1 source fragment
+# rw-consumer: 1 source fragment, 1 batch query
 system ok
 ./e2e_test/source_inline/kafka/consumer_group.mjs count-groups
 ----
-my_group: 2
-rw-consumer: 3
-
+my_group: 1
+rw-consumer: 2
 
 
 statement ok
-DROP SOURCE s CASCADE;
+DROP MATERIALIZED VIEW mv;
 
 sleep 1s
 
 system ok
 ./e2e_test/source_inline/kafka/consumer_group.mjs count-groups
 ----
-my_group: 2
-rw-consumer: 2
+my_group: 1
+rw-consumer: 1
 
 
 
@@ -108,9 +152,11 @@ sleep 1s
 system ok
 ./e2e_test/source_inline/kafka/consumer_group.mjs count-groups
 ----
-my_group: 1
-rw-consumer: 2
+rw-consumer: 1
 
+
+statement ok
+DROP SOURCE s CASCADE;
 
 system ok
-rpk topic delete test_consumer_group
+rpk topic delete test_consumer_group_non_shared

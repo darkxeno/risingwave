@@ -127,13 +127,17 @@ pub async fn create_split_reader<P: SourceProperties>(
 /// [`SplitEnumerator`] fetches the split metadata from the external source service.
 /// NOTE: It runs in the meta server, so probably it should be moved to the `meta` crate.
 #[async_trait]
-pub trait SplitEnumerator: Sized {
+pub trait SplitEnumerator: Sized + Send {
     type Split: SplitMetaData + Send;
     type Properties;
 
     async fn new(properties: Self::Properties, context: SourceEnumeratorContextRef)
         -> Result<Self>;
     async fn list_splits(&mut self) -> Result<Vec<Self::Split>>;
+    /// Do some cleanup work when a fragment is dropped, e.g., drop Kafka consumer group.
+    async fn on_drop_fragments(&mut self, _fragment_ids: Vec<u32>) -> Result<()> {
+        Ok(())
+    }
 }
 
 pub type SourceContextRef = Arc<SourceContext>;
