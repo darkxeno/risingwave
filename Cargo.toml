@@ -139,9 +139,9 @@ axum = "=0.7.4" # TODO: 0.7.5+ does not work with current toolchain
 axum-extra = "0.9"
 futures-async-stream = "0.2.9"
 hytra = "0.1"
-rdkafka = { package = "madsim-rdkafka", version = "0.4.1", features = [
+rdkafka = { package = "madsim-rdkafka", version = "0.4.3", features = [
     "cmake-build",
-], git = "https://github.com/xxchan/madsim", rev = "d2b9fbb0bb2dfbc4f205a11ed1f2d9e8da52307e" }
+] }
 hashbrown = { version = "0.14", features = ["ahash", "inline-more", "nightly"] }
 criterion = { version = "0.5", features = ["async_futures"] }
 tonic = { package = "madsim-tonic", version = "0.5.1" }
