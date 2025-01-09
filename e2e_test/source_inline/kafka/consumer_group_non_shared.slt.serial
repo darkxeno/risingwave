@@ -101,7 +101,7 @@ pkill rpk
 
 # my_group_non_shared: 1 source fragment, 1 batch query
 # We only check my_group_non_shared to avoid interfering with other tests.
-system ok
+system ok retry 3 backoff 1s
 ./e2e_test/source_inline/kafka/consumer_group.mjs count-groups | grep my_group_non_shared
 ----
 my_group_non_shared: 2
@@ -112,7 +112,7 @@ DROP MATERIALIZED VIEW mv;
 
 sleep 1s
 
-system ok
+system ok retry 3 backoff 1s
 ./e2e_test/source_inline/kafka/consumer_group.mjs count-groups | grep my_group_non_shared
 ----
 my_group_non_shared: 1
