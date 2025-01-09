@@ -51,6 +51,7 @@ async function count_consumer_groups() {
     .slice(1)
     .map((line) => {
       const [_broker_id, group_name] = line.split(/\s+/);
+      console.error(group_name);
       return group_name.split("-").slice(0, -1).join("-");
     })
     .reduce((acc, group_name_prefix) => {
