@@ -22,7 +22,7 @@ WITH(
     ${RISEDEV_KAFKA_WITH_OPTIONS_COMMON},
     topic = 'test_consumer_group_non_shared',
     scan.startup.mode = 'earliest',
-    group.id.prefix = 'my_group'
+    group.id.prefix = 'my_group_non_shared'
 ) FORMAT PLAIN ENCODE JSON;
 
 
@@ -99,12 +99,12 @@ pkill rpk
 
 # Test delete consumer group on drop
 
-# my_group: 1 source fragment, 1 batch query
-# We only check my_group to avoid interfering with other tests.
+# my_group_non_shared: 1 source fragment, 1 batch query
+# We only check my_group_non_shared to avoid interfering with other tests.
 system ok
-./e2e_test/source_inline/kafka/consumer_group.mjs count-groups | grep my_group
+./e2e_test/source_inline/kafka/consumer_group.mjs count-groups | grep my_group_non_shared
 ----
-my_group: 2
+my_group_non_shared: 2
 
 
 statement ok
@@ -113,9 +113,9 @@ DROP MATERIALIZED VIEW mv;
 sleep 1s
 
 system ok
-./e2e_test/source_inline/kafka/consumer_group.mjs count-groups | grep my_group
+./e2e_test/source_inline/kafka/consumer_group.mjs count-groups | grep my_group_non_shared
 ----
-my_group: 1
+my_group_non_shared: 1
 
 
 
