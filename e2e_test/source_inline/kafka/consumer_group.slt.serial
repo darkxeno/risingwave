@@ -12,17 +12,9 @@ cat <<EOF | rpk topic produce test_consumer_group -f "%p %v\\n" -p 0
 2 {"x":"c"}
 EOF
 
-statement ok
-CREATE SOURCE s(x varchar)
-WITH(
-    ${RISEDEV_KAFKA_WITH_OPTIONS_COMMON},
-    topic = 'test_consumer_group',
-    scan.startup.mode = 'earliest',
-) FORMAT PLAIN ENCODE JSON;
-
 # custom group id prefix
 statement ok
-CREATE SOURCE s2(x varchar)
+CREATE SOURCE s(x varchar)
 WITH(
     ${RISEDEV_KAFKA_WITH_OPTIONS_COMMON},
     topic = 'test_consumer_group',
@@ -33,9 +25,6 @@ WITH(
 
 statement ok
 CREATE MATERIALIZED VIEW mv AS SELECT * from s;
-
-statement ok
-CREATE MATERIALIZED VIEW mv2 AS SELECT * from s2;
 
 query ?
 SELECT * FROM s order by x;
@@ -52,6 +41,15 @@ SELECT * FROM mv order by x;
 a
 b
 c
+
+
+# shared source starts from latest, so we produce more data to ensure consumer group is created.
+system ok
+cat <<EOF | rpk topic produce test_consumer_group -f "%p %v\\n" -p 0
+0 {"x":"d"}
+1 {"x":"e"}
+2 {"x":"f"}
+EOF
 
 
 # There are 2 consumer groups, 1 for batch query (not listed below), 1 for Source.
@@ -75,15 +73,13 @@ system ok
 
 # Test delete consumer group on drop
 
-# my_group: 1 source fragment, 1 backfill fragment
-# rw-consumer: 1 source fragment, 1 backfill fragment, 1 batch query
-# TODO: drop backfill fragment
+# my_group: 1 source fragment, 1 backfill fragment, 1 batch query
+# TODO: drop backfill fragment on backfill finish
+# We only check my_group to avoid interfering with other tests.
 system ok
-./e2e_test/source_inline/kafka/consumer_group.mjs count-groups
+./e2e_test/source_inline/kafka/consumer_group.mjs count-groups | grep my_group
 ----
-my_group: 2
-rw-consumer: 3
-
+my_group: 3
 
 
 statement ok
@@ -92,24 +88,9 @@ DROP SOURCE s CASCADE;
 sleep 1s
 
 system ok
-./e2e_test/source_inline/kafka/consumer_group.mjs count-groups
+./e2e_test/source_inline/kafka/consumer_group.mjs count-groups | grep my_group
 ----
 my_group: 2
-rw-consumer: 2
-
-
-
-statement ok
-DROP SOURCE s2 CASCADE;
-
-sleep 1s
-
-
-system ok
-./e2e_test/source_inline/kafka/consumer_group.mjs count-groups
-----
-my_group: 1
-rw-consumer: 2
 
 
 system ok

@@ -36,7 +36,7 @@ async function list_consumer_groups(fragment_id) {
     });
   if (fragment_id) {
     return all_groups.filter((group_name) => {
-      return group_name.startsWith(`rw-consumer-${fragment_id}`);
+      return group_name.endsWith(`-${fragment_id}`);
     });
   } else {
     return all_groups;

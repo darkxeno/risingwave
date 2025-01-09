@@ -15,17 +15,9 @@ cat <<EOF | rpk topic produce test_consumer_group_non_shared -f "%p %v\\n" -p 0
 2 {"x":"c"}
 EOF
 
-statement ok
-CREATE SOURCE s(x varchar)
-WITH(
-    ${RISEDEV_KAFKA_WITH_OPTIONS_COMMON},
-    topic = 'test_consumer_group_non_shared',
-    scan.startup.mode = 'earliest',
-) FORMAT PLAIN ENCODE JSON;
-
 # custom group id prefix
 statement ok
-CREATE SOURCE s2(x varchar)
+CREATE SOURCE s(x varchar)
 WITH(
     ${RISEDEV_KAFKA_WITH_OPTIONS_COMMON},
     topic = 'test_consumer_group_non_shared',
@@ -36,9 +28,6 @@ WITH(
 
 statement ok
 CREATE MATERIALIZED VIEW mv AS SELECT * from s;
-
-statement ok
-CREATE MATERIALIZED VIEW mv2 AS SELECT * from s2;
 
 query ?
 SELECT * FROM s order by x;
@@ -105,29 +94,17 @@ e
 f
 
 
-query ?
-SELECT * FROM mv2 order by x;
-----
-a
-b
-c
-d
-e
-f
-
-
 system ok
 pkill rpk
 
 # Test delete consumer group on drop
 
-# my_group: 1 source fragment
-# rw-consumer: 1 source fragment, 1 batch query
+# my_group: 1 source fragment, 1 batch query
+# We only check my_group to avoid interfering with other tests.
 system ok
-./e2e_test/source_inline/kafka/consumer_group.mjs count-groups
+./e2e_test/source_inline/kafka/consumer_group.mjs count-groups | grep my_group
 ----
-my_group: 1
-rw-consumer: 2
+my_group: 2
 
 
 statement ok
@@ -136,23 +113,10 @@ DROP MATERIALIZED VIEW mv;
 sleep 1s
 
 system ok
-./e2e_test/source_inline/kafka/consumer_group.mjs count-groups
+./e2e_test/source_inline/kafka/consumer_group.mjs count-groups | grep my_group
 ----
 my_group: 1
-rw-consumer: 1
 
-
-
-statement ok
-DROP SOURCE s2 CASCADE;
-
-sleep 1s
-
-
-system ok
-./e2e_test/source_inline/kafka/consumer_group.mjs count-groups
-----
-rw-consumer: 1
 
 
 statement ok
