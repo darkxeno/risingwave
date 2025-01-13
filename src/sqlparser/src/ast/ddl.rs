@@ -782,7 +782,7 @@ impl fmt::Display for ColumnOption {
                 if let Some(expr) = expr {
                     write!(f, "DEFAULT {}", expr)
                 } else {
-                    write!(f, "DEFAULT ...")
+                    write!(f, "DEFAULT INTERNAL")
                 }
             }
             Unique { is_primary } => {
